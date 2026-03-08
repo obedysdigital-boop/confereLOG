@@ -1,0 +1,1 @@
+INSERT INTO "Veiculo" ("id", "fretista", "placa", "tipo", "createdAt", "updatedAt") VALUES ('cmmh3p4kc0000tz5lkq8g8rqa', 'Danilo', 'QKY0D59', 'Delivery', 1772934957660, 1772934957660);
