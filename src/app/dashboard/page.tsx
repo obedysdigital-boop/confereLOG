@@ -6,7 +6,7 @@ import { Loader2, TrendingUp, Package, Weight, DollarSign, Percent, Activity } f
 import { toast } from 'sonner';
 import { FilterBar, FilterValues } from '@/components/FilterBar';
 import { ExportButton } from '@/components/ExportButton';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface DashboardMetrics {
   totalValor: number;
