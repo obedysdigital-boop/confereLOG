@@ -17,6 +17,10 @@ interface ValidationResult {
   tipoVeiculo: string | null;
   justificativa: string | null;
   idQuinzenal: string | null;
+  statusValidacao: string;
+  validadoPorUsuario: string | null;
+  validadoPorTipo: string | null;
+  dataValidacao: string | null;
 }
 
 // Normalize route name for matching
@@ -193,18 +197,22 @@ export async function GET(request: NextRequest) {
         tipoVeiculo,
         justificativa: carga.justificativa || null,
         idQuinzenal: carga.id_quinzenal || null,
+        statusValidacao: carga.status_validacao || 'Não autorizado',
+        validadoPorUsuario: carga.validado_por_usuario || null,
+        validadoPorTipo: carga.validado_por_tipo || null,
+        dataValidacao: carga.data_validacao || null,
       });
     }
 
     // Filter if only divergences requested
     const filteredResults = onlyDivergences 
-      ? results.filter(r => r.status === 'Diverge da Tabela')
+      ? results.filter(r => r.status !== 'Conforme Tabela')
       : results;
 
     return NextResponse.json({
       data: filteredResults,
       total: results.length,
-      divergences: results.filter(r => r.status === 'Diverge da Tabela').length,
+      divergences: results.filter(r => r.status !== 'Conforme Tabela').length,
     });
   } catch (error) {
     console.error('Error calculating validation:', error);

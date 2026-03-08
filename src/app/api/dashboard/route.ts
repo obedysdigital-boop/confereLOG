@@ -5,6 +5,10 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const idQuinzenal = searchParams.get('idQuinzenal');
+    const data = searchParams.get('data');
+    const fretista = searchParams.get('fretista');
+    const rota = searchParams.get('rota');
+    const veiculo = searchParams.get('veiculo');
 
     // Buscar dados fretes
     let fretesQuery = supabase
@@ -13,6 +17,15 @@ export async function GET(request: NextRequest) {
 
     if (idQuinzenal) {
       fretesQuery = fretesQuery.eq('id_quinzenal', idQuinzenal);
+    }
+    if (fretista) {
+      fretesQuery = fretesQuery.eq('fretista', fretista);
+    }
+    if (rota) {
+      fretesQuery = fretesQuery.eq('rota', rota);
+    }
+    if (veiculo) {
+      fretesQuery = fretesQuery.eq('placa', veiculo);
     }
 
     const { data: fretes, error: fretesError } = await fretesQuery;
@@ -25,6 +38,9 @@ export async function GET(request: NextRequest) {
 
     if (idQuinzenal) {
       biQuery = biQuery.eq('id_quinzenal', idQuinzenal);
+    }
+    if (data) {
+      biQuery = biQuery.eq('data', data);
     }
 
     const { data: dadosBI, error: biError } = await biQuery;
