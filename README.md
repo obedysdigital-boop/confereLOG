@@ -8,10 +8,16 @@ ConfereLOG é uma aplicação web corporativa desenvolvida para automatizar e ot
 
 ## ✨ Funcionalidades Principais
 
-### 🔐 Autenticação
-- Sistema de login com senha
+### 🔐 Autenticação e Controle de Acesso
+- Sistema de login com usuário e senha
+- Cadastro de novos usuários
+- 3 tipos de usuário: Novo, Supervisor, Administrador
+- Controle de acesso por tipo de usuário
+- Tela de aguardando autorização para novos usuários
+- Tela de configurações para administradores gerenciarem usuários
 - Sessão persistente
 - Logout seguro
+- Registro de logs de atividades
 
 ### 📤 Importação de Dados
 - **Dados BI**: Importação de planilhas "Fretes de Saídas" do BI
@@ -27,6 +33,8 @@ ConfereLOG é uma aplicação web corporativa desenvolvida para automatizar e ot
 - Identificação de divergências em tempo real
 - Cálculo de diferenças (BI x APP, BI x Tabela)
 - Status visual: OK, Diverge, Sem Dados
+- Botão de status de validação em cada linha (Não autorizado / Validado e Autorizado)
+- Registro de quem validou, tipo de usuário e data de validação
 - Filtros avançados por quinzena, data, fretista, rota e veículo
 - Busca textual por carga, fretista ou rota
 
@@ -44,8 +52,10 @@ ConfereLOG é uma aplicação web corporativa desenvolvida para automatizar e ot
   - TOP 5 piores fretes (maior % despesa)
   - TOP 5 melhores fretes (menor % despesa)
 - **Tabela Resumida**: Análise detalhada por fretista com todas as métricas
+- **Tabela de Validações**: Lista de fretes validados e autorizados com usuário, tipo e data
 - **Filtros**: Por quinzena para análise temporal
 - **Exportação**: Dados do dashboard em formato XLSX
+- **Relatório HTML**: Geração de relatório completo em HTML para impressão
 
 ### 📋 Histórico de Importações
 - Registro automático de todas as importações
@@ -93,9 +103,17 @@ ConfereLOG é uma aplicação web corporativa desenvolvida para automatizar e ot
 - Cadastro de veículos e fretistas
 - Campos: fretista, placa, tipo
 
+#### `usuarios`
+- Cadastro de usuários do sistema
+- Campos: usuario, senha_hash, tipo (novo/supervisor/administrador), ativo, created_at, updated_at
+
+#### `logs_atividades`
+- Registro de atividades dos usuários
+- Campos: usuario_id, tipo_usuario, acao, detalhes, created_at
+
 #### `dados_fretes` (APP)
 - Dados importados do aplicativo de fretes
-- Campos: id_carga, data, fretista, rota, valor_app, placa, tipo, status, id_quinzenal, justificativa
+- Campos: id_carga, data, fretista, rota, valor_app, placa, tipo, status, id_quinzenal, justificativa, status_validacao, validado_por_usuario, validado_por_tipo, data_validacao
 
 #### `dados_bi`
 - Dados importados do BI
@@ -139,9 +157,6 @@ Crie um arquivo `.env` na raiz do projeto:
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anonima
-
-# Autenticação
-AUTH_PASSWORD=sua-senha-de-acesso
 ```
 
 4. **Configure o banco de dados no Supabase**
@@ -149,6 +164,27 @@ AUTH_PASSWORD=sua-senha-de-acesso
 Execute os seguintes comandos SQL no Supabase SQL Editor:
 
 ```sql
+-- Criar tabela de usuários
+CREATE TABLE usuarios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario TEXT UNIQUE NOT NULL,
+  senha_hash TEXT NOT NULL,
+  tipo TEXT NOT NULL CHECK (tipo IN ('novo', 'supervisor', 'administrador')),
+  ativo BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Criar tabela de logs de atividades
+CREATE TABLE logs_atividades (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id UUID REFERENCES usuarios(id),
+  tipo_usuario TEXT NOT NULL,
+  acao TEXT NOT NULL,
+  detalhes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Criar tabela de veículos
 CREATE TABLE veiculos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -172,6 +208,10 @@ CREATE TABLE dados_fretes (
   status TEXT,
   id_quinzenal TEXT,
   justificativa TEXT,
+  status_validacao TEXT DEFAULT 'Não autorizado',
+  validado_por_usuario TEXT,
+  validado_por_tipo TEXT,
+  data_validacao TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -219,6 +259,8 @@ CREATE INDEX idx_dados_bi_quinzenal ON dados_bi(id_quinzenal);
 CREATE INDEX idx_tabela_fretes_rota ON tabela_fretes(rota);
 
 -- Habilitar RLS (Row Level Security)
+ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE logs_atividades ENABLE ROW LEVEL SECURITY;
 ALTER TABLE veiculos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dados_fretes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dados_bi ENABLE ROW LEVEL SECURITY;
@@ -226,6 +268,8 @@ ALTER TABLE tabela_fretes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quinzenas ENABLE ROW LEVEL SECURITY;
 
 -- Criar políticas de acesso (permitir tudo para service_role)
+CREATE POLICY "Allow all for service role" ON usuarios FOR ALL USING (true);
+CREATE POLICY "Allow all for service role" ON logs_atividades FOR ALL USING (true);
 CREATE POLICY "Allow all for service role" ON veiculos FOR ALL USING (true);
 CREATE POLICY "Allow all for service role" ON dados_fretes FOR ALL USING (true);
 CREATE POLICY "Allow all for service role" ON dados_bi FOR ALL USING (true);
@@ -255,10 +299,27 @@ Abra [http://localhost:3000](http://localhost:3000) no navegador.
 
 ## 📖 Como Usar
 
-### 1. Login
-- Acesse a aplicação
-- Digite a senha configurada em `AUTH_PASSWORD`
-- Clique em "Entrar"
+### 1. Cadastro e Login
+
+#### Primeiro Acesso (Cadastro)
+1. Acesse a aplicação
+2. Clique em "Criar nova conta"
+3. Digite seu nome de usuário e senha
+4. Clique em "Cadastrar"
+5. Aguarde a autorização de um administrador
+
+#### Login
+1. Acesse a aplicação
+2. Digite seu usuário e senha
+3. Clique em "Entrar"
+
+#### Gerenciar Usuários (Apenas Administradores)
+1. Faça login como administrador
+2. Clique no seu nome no header
+3. Selecione "Configurações"
+4. Visualize todos os usuários cadastrados
+5. Altere o tipo de usuário (Novo, Supervisor, Administrador)
+6. Ative ou desative usuários conforme necessário
 
 ### 2. Importar Dados
 
@@ -290,6 +351,10 @@ Abra [http://localhost:3000](http://localhost:3000) no navegador.
    - Rota
    - Veículo
 4. Use a busca textual para encontrar cargas específicas
+5. Clique no botão de status para validar/autorizar um frete:
+   - Vermelho: "Não autorizado"
+   - Verde: "Validado e Autorizado"
+6. O sistema registra automaticamente quem validou, tipo de usuário e data
 
 ### 4. Gerenciar Divergências
 
@@ -320,7 +385,8 @@ Abra [http://localhost:3000](http://localhost:3000) no navegador.
 
 ### 6. Alternar Tema
 
-- Clique no ícone de lua/sol no header
+- Clique no seu nome no header
+- Selecione o ícone de lua/sol no menu dropdown
 - Escolha entre tema claro ou escuro
 - Preferência é salva automaticamente
 
@@ -331,24 +397,37 @@ conferelog/
 ├── src/
 │   ├── app/
 │   │   ├── api/              # Endpoints da API
-│   │   │   ├── auth/         # Autenticação
+│   │   │   ├── auth/         # Autenticação (login, register)
 │   │   │   ├── dashboard/    # Dashboard analítico
-│   │   │   ├── fretes/       # Operações de fretes
+│   │   │   ├── fretes/       # Operações de fretes (validacao, status, justificativa)
 │   │   │   ├── historico/    # Histórico de importações
+│   │   │   ├── logs/         # Logs de atividades
 │   │   │   ├── quinzenas/    # Gestão de quinzenas
 │   │   │   ├── upload/       # Upload de arquivos
+│   │   │   ├── usuarios/     # Gestão de usuários
 │   │   │   └── veiculos/     # Gestão de veículos
+│   │   ├── aguardando-autorizacao/  # Página para novos usuários
+│   │   ├── cadastro/         # Página de cadastro
+│   │   ├── configuracoes/    # Página de configurações (admin)
 │   │   ├── dashboard/        # Página do dashboard
+│   │   ├── login/            # Página de login
 │   │   ├── globals.css       # Estilos globais
 │   │   ├── layout.tsx        # Layout principal
 │   │   └── page.tsx          # Página principal
 │   ├── components/
 │   │   ├── ui/               # Componentes shadcn/ui
+│   │   ├── AuthContext.tsx   # Contexto de autenticação
 │   │   ├── ExportButton.tsx  # Botão de exportação XLSX
 │   │   ├── FilterBar.tsx     # Barra de filtros
 │   │   ├── HistoricoImportacoes.tsx
 │   │   ├── JustificativaDialog.tsx
-│   │   └── QuinzenaModal.tsx
+│   │   ├── MainLayout.tsx    # Layout com header e proteção
+│   │   ├── ProtectedRoute.tsx # Proteção de rotas
+│   │   ├── QuinzenaModal.tsx
+│   │   ├── StatusButton.tsx  # Botão de validação de status
+│   │   └── UserHeader.tsx    # Header com menu de usuário
+│   ├── contexts/
+│   │   └── AuthContext.tsx   # Contexto de autenticação
 │   ├── hooks/                # React hooks customizados
 │   └── lib/
 │       ├── supabase.ts       # Cliente Supabase
@@ -367,15 +446,25 @@ conferelog/
 ## 🔌 API Endpoints
 
 ### Autenticação
-- `POST /api/auth` - Login
+- `POST /api/auth/login` - Login
+- `POST /api/auth/register` - Cadastro de novo usuário
 - `GET /api/auth` - Verificar sessão
 - `DELETE /api/auth` - Logout
 
+### Usuários
+- `GET /api/usuarios` - Listar todos os usuários (apenas admin)
+- `PUT /api/usuarios` - Atualizar usuário (tipo ou status ativo)
+
+### Logs
+- `GET /api/logs` - Listar logs de atividades
+- `POST /api/logs` - Criar log de atividade
+
 ### Fretes
 - `GET /api/fretes/validacao` - Listar validações
-- `GET /api/fretes/validacao?divergentes=true` - Listar apenas divergências
+- `GET /api/fretes/validacao?divergentes=true` - Listar apenas divergências (status !== 'Conforme Tabela')
 - `GET /api/fretes/validacao?idQuinzenal=xxx` - Filtrar por quinzena
 - `PATCH /api/fretes/justificativa` - Atualizar justificativa
+- `PATCH /api/fretes/status` - Atualizar status de validação (Não autorizado / Validado e Autorizado)
 
 ### Dashboard
 - `GET /api/dashboard` - Obter métricas e dados analíticos
@@ -487,15 +576,23 @@ Colunas esperadas:
 
 ## 📝 Notas de Versão
 
-### v1.0.0 (Atual)
-- ✅ Sistema de autenticação
+### v2.0.0 (Atual)
+- ✅ Sistema de autenticação com usuário e senha
+- ✅ Cadastro de novos usuários
+- ✅ 3 tipos de usuário (Novo, Supervisor, Administrador)
+- ✅ Tela de configurações para administradores
+- ✅ Controle de acesso por tipo de usuário
+- ✅ Botão de status de validação em cada frete
+- ✅ Registro de validações (usuário, tipo, data)
+- ✅ Tabela de validações no relatório HTML
+- ✅ Logs de atividades dos usuários
 - ✅ Importação de dados BI, APP e Tabela
 - ✅ Sistema de quinzenas
 - ✅ Validação automática de fretes
-- ✅ Identificação de divergências
+- ✅ Identificação de divergências (todos os status !== 'Conforme Tabela')
 - ✅ Justificativas por frete
 - ✅ Filtros avançados
-- ✅ Tema claro/escuro
+- ✅ Tema claro/escuro no menu do usuário
 - ✅ Compartilhamento via WhatsApp
 - ✅ Design profissional e responsivo
 - ✅ Migração completa para Supabase

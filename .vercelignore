@@ -1,18 +1,18 @@
 # Dependencies
-node_modules
+node_modules/
 .pnp
 .pnp.js
 
 # Testing
-coverage
+coverage/
 
 # Next.js
 .next/
 out/
 
 # Production
-build
-dist
+build/
+dist/
 
 # Misc
 .DS_Store
@@ -22,24 +22,48 @@ dist
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+bun-debug.log*
 
 # Vercel
-.vercel
+.vercel/
 
 # TypeScript
 *.tsbuildinfo
 
-# Scripts and examples
-scripts/
-upload/
-examples/
-mini-services/
-download/
-.zscripts/
+# Scripts (não necessários no deploy)
+scripts/clear-data.ts
+scripts/clear-data-sql.ts
+scripts/sync-veiculos.ts
 
-# Documentation
+# Upload directory (arquivos de exemplo)
+upload/
+
+# Database files (arquivos de exemplo)
+db/
+
+# Agents (não necessário no deploy)
+.agents/
+
+# IDE
+.vscode/
+.idea/
+
+# Documentation (exceto README)
 *.md
 !README.md
 
-# Prisma
-prisma/
+# Temporary files
+local-*
+.claude
+.z-ai-config
+test
+prompt
+
+# Docker
+Caddyfile
+.dockerignore
+
+# Lock files alternativos
+bun.lock
+yarn.lock
+pnpm-lock.yaml

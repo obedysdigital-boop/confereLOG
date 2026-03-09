@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-node_modules
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -29,9 +29,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+bun-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files
+.env
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
@@ -39,20 +44,50 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+server.log
+dev.log
+
+# Temporary files
 local-*
 .claude
 .z-ai-config
-dev.log
 test
 prompt
+1
 
-server.log
-# Skills directory
-# /skills/
+# Upload directory (arquivos de exemplo)
+upload/
 
-# .agents
-**/.agents/
+# Database files (arquivos de exemplo)
+db/
 
-# upload
-**/upload/
+# Agents (gerado automaticamente)
+.agents/
+
+# Lock files (manter apenas package-lock.json)
+bun.lock
+yarn.lock
+pnpm-lock.yaml
+
+# Documentation temporária
+DEPLOY_VERCEL.md
+VERCEL_CHECKLIST.md
+
+# Docker (não usado)
+Caddyfile
+.dockerignore
 
