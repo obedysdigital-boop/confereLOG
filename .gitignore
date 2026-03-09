@@ -69,11 +69,9 @@ test
 prompt
 1
 
-# Upload directory (arquivos de exemplo)
-upload/
-
-# Database files (arquivos de exemplo)
-db/
+# Upload directory (arquivos de exemplo na raiz)
+/upload/
+/db/
 
 # Agents (gerado automaticamente)
 .agents/
