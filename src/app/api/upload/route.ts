@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
 
+// Configuração para Vercel
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // 60 segundos timeout
+
 type BIRecord = {
   idCarga: string;
   valorBI: number;
