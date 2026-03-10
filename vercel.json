@@ -5,7 +5,7 @@
   "framework": "nextjs",
   "regions": ["gru1"],
   "functions": {
-    "src/app/api/upload/route.ts": {
+    "src/app/api/import-files/route.ts": {
       "maxDuration": 60,
       "memory": 1024
     }

@@ -85,7 +85,7 @@ function UploadPage() {
       formData.append('type', type);
       formData.append('idQuinzenal', 'N/A'); // Tabela não usa quinzena
 
-      const res = await fetch('/api/upload', {
+      const res = await fetch('/api/import-files', {
         method: 'POST',
         body: formData,
       });
@@ -121,7 +121,7 @@ function UploadPage() {
       formData.append('type', type);
       formData.append('idQuinzenal', idQuinzenal);
 
-      const res = await fetch('/api/upload', {
+      const res = await fetch('/api/import-files', {
         method: 'POST',
         body: formData,
       });
