@@ -525,7 +525,14 @@ ${divergences.length > 10 ? `\n... e mais ${divergences.length - 10} divergênci
                 'Dif BI×APP': item.divergBiApp,
                 'Dif BI×Tabela': item.divergBiTabela,
                 Status: item.status,
+                'Status Frete': item.statusFrete,
+                'Status Validação': item.statusValidacao,
                 Justificativa: item.justificativa || '',
+                'Validado Por': item.validadoPorUsuario || '',
+                'Tipo Validador': item.validadoPorTipo || '',
+                'Data Validação': item.dataValidacao || '',
+                'Justificado Por': item.justificadoPorUsuario || '',
+                'Data Justificativa': item.dataJustificativa || '',
               }))}
               filename={onlyDivergences ? 'exportacao-divergencias' : onlyJustificados ? 'exportacao-justificados' : 'exportacao-validacao'}
             />

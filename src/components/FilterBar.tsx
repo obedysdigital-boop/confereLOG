@@ -77,6 +77,7 @@ export function FilterBar({ onFilterChange, quinzenas, fretistas, rotas, veiculo
       validacao: '',
     });
     setSelectedDate(undefined);
+    setInitialized(false); // Permitir que a quinzena seja selecionada novamente
   };
 
   const hasActiveFilters = Object.values(filters).some(v => v !== '');
