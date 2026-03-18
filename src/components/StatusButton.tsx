@@ -20,10 +20,11 @@ interface StatusButtonProps {
   id: string;
   idCarga: string;
   currentStatus: string;
+  statusAtual: string; // Status do frete (OK, Diverge, etc)
   onStatusChanged: () => void;
 }
 
-export function StatusButton({ id, idCarga, currentStatus, onStatusChanged }: StatusButtonProps) {
+export function StatusButton({ id, idCarga, currentStatus, statusAtual, onStatusChanged }: StatusButtonProps) {
   const [loading, setLoading] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const { user } = useAuth();
@@ -46,6 +47,7 @@ export function StatusButton({ id, idCarga, currentStatus, onStatusChanged }: St
           status_validacao: newStatus,
           validado_por_usuario: user.usuario,
           validado_por_tipo: user.tipo,
+          status_atual: statusAtual, // Enviar status atual para API decidir se marca como Justificado
         }),
       });
 

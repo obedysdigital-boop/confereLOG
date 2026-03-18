@@ -23,6 +23,8 @@ export interface FilterValues {
   fretista: string;
   rota: string;
   veiculo: string;
+  status: string;
+  validacao: string;
 }
 
 export function FilterBar({ onFilterChange, quinzenas, fretistas, rotas, veiculos }: FilterBarProps) {
@@ -32,6 +34,8 @@ export function FilterBar({ onFilterChange, quinzenas, fretistas, rotas, veiculo
     fretista: '',
     rota: '',
     veiculo: '',
+    status: '',
+    validacao: '',
   });
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -58,6 +62,8 @@ export function FilterBar({ onFilterChange, quinzenas, fretistas, rotas, veiculo
       fretista: '',
       rota: '',
       veiculo: '',
+      status: '',
+      validacao: '',
     });
     setSelectedDate(undefined);
   };
@@ -134,6 +140,29 @@ export function FilterBar({ onFilterChange, quinzenas, fretistas, rotas, veiculo
               {veiculos.map((v) => (
                 <SelectItem key={v} value={v}>{v}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filters.status || undefined} onValueChange={(v) => setFilters({ ...filters, status: v })}>
+            <SelectTrigger className="w-[160px] h-9 text-sm">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Conforme Tabela">OK</SelectItem>
+              <SelectItem value="Diverge da Tabela">Diverge</SelectItem>
+              <SelectItem value="Sem dados BI">Sem dados BI</SelectItem>
+              <SelectItem value="Sem valor tabela">Sem valor tabela</SelectItem>
+              <SelectItem value="Justificado">Justificado</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={filters.validacao || undefined} onValueChange={(v) => setFilters({ ...filters, validacao: v })}>
+            <SelectTrigger className="w-[160px] h-9 text-sm">
+              <SelectValue placeholder="Validação" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Não autorizado">Não autorizado</SelectItem>
+              <SelectItem value="Validado e Autorizado">Autorizado</SelectItem>
             </SelectContent>
           </Select>
         </>

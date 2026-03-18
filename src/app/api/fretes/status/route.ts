@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase';
 
 export async function PUT(request: NextRequest) {
   try {
-    const { id, status_validacao, validado_por_usuario, validado_por_tipo } = await request.json();
+    const { id, status_validacao, validado_por_usuario, validado_por_tipo, status_atual } = await request.json();
 
     if (!id || !status_validacao || !validado_por_usuario || !validado_por_tipo) {
       return NextResponse.json(
@@ -24,9 +24,15 @@ export async function PUT(request: NextRequest) {
     // Se está validando, adicionar data de validação
     if (status_validacao === 'Validado e Autorizado') {
       updateData.data_validacao = new Date().toISOString();
+      
+      // Se o status atual é uma divergência, marcar como "Justificado"
+      if (status_atual && status_atual !== 'Conforme Tabela') {
+        updateData.status_frete = 'Justificado';
+      }
     } else {
-      // Se está removendo validação, limpar data
+      // Se está removendo validação, limpar data e status_frete
       updateData.data_validacao = null;
+      updateData.status_frete = null;
     }
 
     const { error } = await supabase

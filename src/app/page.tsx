@@ -264,6 +264,8 @@ function ValidationTable({ onlyDivergences = false }: { onlyDivergences?: boolea
     fretista: '',
     rota: '',
     veiculo: '',
+    status: '',
+    validacao: '',
   });
 
   const fetchData = useCallback(async () => {
@@ -291,13 +293,19 @@ function ValidationTable({ onlyDivergences = false }: { onlyDivergences?: boolea
   useEffect(() => {
     let filtered = [...data];
 
-    // Filtro de busca
+    // Filtro de busca textual - expandido para incluir status, validação, valores e justificativa
     if (search) {
       filtered = filtered.filter(
         (item) =>
           item.fretista.toLowerCase().includes(search.toLowerCase()) ||
           item.rota.toLowerCase().includes(search.toLowerCase()) ||
-          item.idCarga.includes(search)
+          item.idCarga.includes(search) ||
+          item.status.toLowerCase().includes(search.toLowerCase()) ||
+          item.statusValidacao.toLowerCase().includes(search.toLowerCase()) ||
+          (item.justificativa && item.justificativa.toLowerCase().includes(search.toLowerCase())) ||
+          (item.valorBI && item.valorBI.toString().includes(search)) ||
+          (item.valorApp && item.valorApp.toString().includes(search)) ||
+          (item.valorTabela && item.valorTabela.toString().includes(search))
       );
     }
 
@@ -324,6 +332,16 @@ function ValidationTable({ onlyDivergences = false }: { onlyDivergences?: boolea
     // Filtro de veículo
     if (filters.veiculo) {
       filtered = filtered.filter((item) => item.placa === filters.veiculo);
+    }
+
+    // Filtro de status
+    if (filters.status) {
+      filtered = filtered.filter((item) => item.status === filters.status);
+    }
+
+    // Filtro de validação
+    if (filters.validacao) {
+      filtered = filtered.filter((item) => item.statusValidacao === filters.validacao);
     }
 
     setFilteredData(filtered);
@@ -510,6 +528,8 @@ ${divergences.length > 10 ? `\n... e mais ${divergences.length - 10} divergênci
                         className={`text-xs ${
                           item.status === 'Conforme Tabela'
                             ? 'bg-green-600'
+                            : item.status === 'Justificado'
+                            ? 'bg-blue-600'
                             : item.status === 'Diverge da Tabela'
                             ? 'bg-red-600'
                             : 'bg-gray-500'
@@ -523,6 +543,7 @@ ${divergences.length > 10 ? `\n... e mais ${divergences.length - 10} divergênci
                         id={item.id}
                         idCarga={item.idCarga}
                         currentStatus={item.statusValidacao}
+                        statusAtual={item.status}
                         onStatusChanged={fetchData}
                       />
                     </div>

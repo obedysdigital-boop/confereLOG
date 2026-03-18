@@ -147,6 +147,17 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Se tem status_frete definido (Justificado), usar ele
+      if (carga.status_frete) {
+        status = carga.status_frete;
+      }
+
+      // Auto-autorizar status OK
+      let statusValidacao = carga.status_validacao || 'Não autorizado';
+      if (status === 'Conforme Tabela' && statusValidacao === 'Não autorizado') {
+        statusValidacao = 'Validado e Autorizado';
+      }
+
       results.push({
         id: carga.id,
         data: carga.data,
@@ -163,7 +174,7 @@ export async function GET(request: NextRequest) {
         tipoVeiculo,
         justificativa: carga.justificativa || null,
         idQuinzenal: carga.id_quinzenal || null,
-        statusValidacao: carga.status_validacao || 'Não autorizado',
+        statusValidacao,
         validadoPorUsuario: carga.validado_por_usuario || null,
         validadoPorTipo: carga.validado_por_tipo || null,
         dataValidacao: carga.data_validacao || null,
