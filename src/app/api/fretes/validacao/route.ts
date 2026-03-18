@@ -52,42 +52,41 @@ export async function GET(request: NextRequest) {
     const onlyDivergences = searchParams.get('divergentes') === 'true';
     const idQuinzenal = searchParams.get('idQuinzenal');
 
-    // Fetch all data - buscar separadamente para ter controle total
+    // Fetch dados_fretes
     let cargasQuery = supabase
       .from('dados_fretes')
       .select('*')
       .order('data', { ascending: false });
 
-    // Filtrar por quinzena se fornecido
     if (idQuinzenal) {
       cargasQuery = cargasQuery.eq('id_quinzenal', idQuinzenal);
     }
 
     const { data: cargas, error: cargasError } = await cargasQuery;
-
     if (cargasError) throw cargasError;
 
-    let biQuery = supabase
-      .from('dados_bi')
-      .select('*');
-
-    // Filtrar por quinzena se fornecido
+    // Fetch dados_bi
+    let biQuery = supabase.from('dados_bi').select('*');
     if (idQuinzenal) {
       biQuery = biQuery.eq('id_quinzenal', idQuinzenal);
     }
 
     const { data: dadosBI, error: biError } = await biQuery;
-
     if (biError) throw biError;
 
+    // Fetch tabela_fretes
     const { data: tabelaFretes, error: tabelaError } = await supabase
       .from('tabela_fretes')
       .select('*');
-
     if (tabelaError) throw tabelaError;
 
-    // Create lookup map for dados BI - pode haver múltiplos BIs para a mesma carga
-    // Vamos usar um Map que armazena arrays de valores
+    // Fetch veiculos para fazer o match manual
+    const { data: veiculos, error: veiculosError } = await supabase
+      .from('veiculos')
+      .select('placa, tipo');
+    if (veiculosError) throw veiculosError;
+
+    // Create lookup maps
     const biMap = new Map<string, number[]>();
     for (const bi of dadosBI || []) {
       if (!biMap.has(bi.id_carga)) {
@@ -96,48 +95,30 @@ export async function GET(request: NextRequest) {
       biMap.get(bi.id_carga)!.push(bi.valor_bi);
     }
 
-    // Create lookup map for tabela de fretes
     const tabelaMap = new Map<string, number>();
     for (const tf of tabelaFretes || []) {
       const key = `${normalizeRota(tf.rota)}_${normalizeTipoVeiculo(tf.tipo_veiculo)}`;
       tabelaMap.set(key, tf.valor_tabela);
     }
 
+    // Create veiculos map (placa -> tipo)
+    const veiculosMap = new Map<string, string>();
+    for (const v of veiculos || []) {
+      veiculosMap.set(v.placa, v.tipo);
+    }
+
     // Process and calculate divergences
     const results: ValidationResult[] = [];
 
     for (const carga of cargas || []) {
-      // Para cada frete, buscar o primeiro valor BI correspondente (se houver múltiplos)
       const valoresBI = biMap.get(carga.id_carga);
       const valorBI = valoresBI && valoresBI.length > 0 ? valoresBI[0] : null;
       const valorApp = carga.valor_app;
       
-      // Determine vehicle type from placa or default
+      // Buscar tipo de veículo pela placa na tabela veiculos
       let tipoVeiculo: string | null = null;
       if (carga.placa) {
-        // Try to infer from known vehicles
-        const knownVehicles: Record<string, string> = {
-          'QKY0D59': 'DELIVERY',
-          'LRC7H40': 'DELIVERY',
-          'BRY9A41': 'DELIVERY',
-          'OSF8808': 'BONGO',
-          'JOP0J97': '3/4',
-          'LST7H05': '3/4',
-          'PJN1652': '3/4',
-          'OES3C15': '3/4',
-          'JPX8747': '3/4',
-          'NZY7881': 'TOCO',
-          'NVM5109': '3/4',
-          'ORI2G75': '3/4',
-          'DVA3G04': 'TOCO',
-          'IAD5528': 'TOCO',
-          'PST5A22': 'TOCO',
-          'NYL1B84': 'TOCO',
-          'PEY9D15': '3/4',
-          'PLK2C22': 'BONGO',
-          'OKV2567': 'TOCO',
-        };
-        tipoVeiculo = knownVehicles[carga.placa.replace('-', '')] ?? null;
+        tipoVeiculo = veiculosMap.get(carga.placa) || null;
       }
 
       // Find valor tabela based on rota and tipo veiculo
@@ -145,20 +126,6 @@ export async function GET(request: NextRequest) {
       if (carga.rota && tipoVeiculo) {
         const key = `${normalizeRota(carga.rota)}_${normalizeTipoVeiculo(tipoVeiculo)}`;
         valorTabela = tabelaMap.get(key) ?? null;
-        
-        // If not found, try partial matching for route
-        if (valorTabela === null) {
-          for (const [k, v] of tabelaMap.entries()) {
-            const [rotaKey, tipoKey] = k.split('_');
-            if (tipoKey === normalizeTipoVeiculo(tipoVeiculo)) {
-              // Check if routes partially match
-              if (normalizeRota(carga.rota).includes(rotaKey) || rotaKey.includes(normalizeRota(carga.rota))) {
-                valorTabela = v;
-                break;
-              }
-            }
-          }
-        }
       }
 
       // Calculate divergences
@@ -173,8 +140,7 @@ export async function GET(request: NextRequest) {
       let status = 'Sem dados BI';
       if (valorBI !== null) {
         if (valorTabela !== null) {
-          const hasDivergence = (divergBiApp !== null && divergBiApp !== 0) || 
-                               (divergBiTabela !== null && divergBiTabela !== 0);
+          const hasDivergence = Math.abs(divergBiTabela || 0) > 0.01;
           status = hasDivergence ? 'Diverge da Tabela' : 'Conforme Tabela';
         } else {
           status = 'Sem valor tabela';

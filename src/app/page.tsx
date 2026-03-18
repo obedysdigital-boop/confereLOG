@@ -526,8 +526,19 @@ ${divergences.length > 10 ? `\n... e mais ${divergences.length - 10} divergênci
                         onStatusChanged={fetchData}
                       />
                     </div>
-                    <div className="truncate text-xs text-gray-600" title={item.justificativa || ''}>
-                      {item.justificativa || '-'}
+                    <div className="text-xs text-gray-600">
+                      {item.justificativa && item.justificativa.length > 50 ? (
+                        <details className="cursor-pointer">
+                          <summary className="hover:text-gray-900 font-medium">
+                            {item.justificativa.substring(0, 50)}...
+                          </summary>
+                          <div className="mt-1 p-2 bg-gray-50 rounded text-xs whitespace-pre-wrap">
+                            {item.justificativa}
+                          </div>
+                        </details>
+                      ) : (
+                        <span title={item.justificativa || ''}>{item.justificativa || '-'}</span>
+                      )}
                     </div>
                     <div className="flex gap-1">
                       <Button

@@ -582,18 +582,22 @@ export default function DashboardPage() {
             </tr>
           </thead>
           <tbody>
-            ${estado.validacoes.map(item => `
+            ${estado.validacoes.map(item => {
+              const justificativa = item.justificativa || '-';
+              const justificativaEscaped = justificativa.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, ' ');
+              return `
               <tr>
-                <td class="font-mono">${item.idCarga}</td>
-                <td class="truncate" style="max-width: 200px;" title="${item.justificativa || ''}">${item.justificativa || '-'}</td>
-                <td class="text-right font-mono">${formatCurrency(item.valorApp)}</td>
-                <td class="text-right font-mono">${formatCurrency(item.valorTabela)}</td>
+                <td class="font-mono">${item.idCarga || '-'}</td>
+                <td style="max-width: 200px; word-wrap: break-word; white-space: normal;" title="${justificativaEscaped}">${justificativaEscaped}</td>
+                <td class="text-right font-mono">${item.valorApp ? formatCurrency(item.valorApp) : '-'}</td>
+                <td class="text-right font-mono">${item.valorTabela ? formatCurrency(item.valorTabela) : '-'}</td>
                 <td><span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 3px; font-size: 5.5pt;">Autorizado</span></td>
-                <td>${item.validadoPorUsuario}</td>
-                <td>${item.validadoPorTipo}</td>
+                <td>${item.validadoPorUsuario || '-'}</td>
+                <td>${item.validadoPorTipo || '-'}</td>
                 <td class="text-right">${item.dataValidacao ? new Date(item.dataValidacao).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}</td>
               </tr>
-            `).join('')}
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
