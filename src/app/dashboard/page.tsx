@@ -1397,6 +1397,31 @@ export default function DashboardPage() {
                     <td className="p-2 text-right font-mono text-gray-900 dark:text-white">{formatNumber(item.pesoMedio)} kg</td>
                   </tr>
                 ))}
+                {/* Linha de Totais/Médias */}
+                <tr className="border-t-2 border-gray-400 dark:border-gray-600 bg-gray-100 dark:bg-gray-900 font-bold">
+                  <td className="p-2 text-gray-900 dark:text-white">TOTAIS / MÉDIAS</td>
+                  <td className="p-2 text-right font-mono text-gray-900 dark:text-white">
+                    {formatCurrency(data.tabelaResumo.reduce((sum, item) => sum + item.valorTotal, 0))}
+                  </td>
+                  <td className="p-2 text-right text-gray-900 dark:text-white">
+                    {data.tabelaResumo.reduce((sum, item) => sum + item.qtdEntregas, 0)}
+                  </td>
+                  <td className="p-2 text-right font-mono text-gray-900 dark:text-white">
+                    {formatNumber((data.tabelaResumo.reduce((sum, item) => sum + item.percDespesaFrete, 0) / data.tabelaResumo.length) * 100)}%
+                  </td>
+                  <td className="p-2 text-right font-mono text-gray-900 dark:text-white">
+                    {formatNumber((data.tabelaResumo.reduce((sum, item) => sum + item.percOcupacao, 0) / data.tabelaResumo.length) * 100)}%
+                  </td>
+                  <td className="p-2 text-right font-mono text-gray-900 dark:text-white">
+                    {formatCurrency(data.tabelaResumo.reduce((sum, item) => sum + item.custoKg, 0) / data.tabelaResumo.length)}
+                  </td>
+                  <td className="p-2 text-right font-mono text-gray-900 dark:text-white">
+                    {formatNumber(data.tabelaResumo.reduce((sum, item) => sum + item.pesoTotal, 0))} kg
+                  </td>
+                  <td className="p-2 text-right font-mono text-gray-900 dark:text-white">
+                    {formatNumber(data.tabelaResumo.reduce((sum, item) => sum + item.pesoMedio, 0) / data.tabelaResumo.length)} kg
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

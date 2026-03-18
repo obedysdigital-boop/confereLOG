@@ -141,7 +141,6 @@
   background: oklch(0.65 0 0);
 }
 
-
 /* Dark Theme - Corporativo Clean - Contraste Sutil */
 .dark {
   --background: #000000;
@@ -183,10 +182,35 @@
   background: #1A1A1A;
 }
 
-/* TODOS os componentes usam a mesma cor #0F0F0F */
-.dark .bg-white,
-.dark [class*="bg-white"],
-.dark [class*="bg-gray"] {
+/* Sidebar - Garantir visibilidade */
+[data-sidebar="sidebar"],
+[data-slot="sidebar"] {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.dark [data-sidebar="sidebar"],
+.dark [data-slot="sidebar"] {
+  background-color: var(--sidebar) !important;
+  color: var(--sidebar-foreground) !important;
+  border-color: var(--sidebar-border) !important;
+}
+
+.dark [data-sidebar="sidebar"] [data-active="true"] {
+  background-color: var(--sidebar-primary) !important;
+  color: var(--sidebar-primary-foreground) !important;
+}
+
+.dark [data-sidebar="sidebar"] button:hover:not([data-active="true"]) {
+  background-color: var(--sidebar-accent) !important;
+  color: var(--sidebar-accent-foreground) !important;
+}
+
+/* TODOS os componentes usam a mesma cor #0F0F0F - EXCETO SIDEBAR */
+.dark .bg-white:not([data-sidebar]):not([data-sidebar] *):not([data-slot="sidebar"]):not([data-slot="sidebar"] *),
+.dark [class*="bg-white"]:not([data-sidebar]):not([data-sidebar] *):not([data-slot="sidebar"]):not([data-slot="sidebar"] *),
+.dark [class*="bg-gray"]:not([data-sidebar]):not([data-sidebar] *):not([data-slot="sidebar"]):not([data-slot="sidebar"] *) {
   background-color: #0F0F0F !important;
 }
 

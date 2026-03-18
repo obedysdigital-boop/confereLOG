@@ -39,10 +39,21 @@ export function FilterBar({ onFilterChange, quinzenas, fretistas, rotas, veiculo
   });
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  // Selecionar a quinzena mais recente por padrão (apenas uma vez)
+  useEffect(() => {
+    if (quinzenas.length > 0 && !initialized) {
+      // Ordenar quinzenas (mais recente primeiro)
+      const sortedQuinzenas = [...quinzenas].sort((a, b) => b.localeCompare(a));
+      setFilters(prev => ({ ...prev, quinzena: sortedQuinzenas[0] }));
+      setInitialized(true);
+    }
+  }, [quinzenas, initialized]);
 
   useEffect(() => {
     onFilterChange(filters);
-  }, [filters, onFilterChange]);
+  }, [filters]);
 
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
@@ -74,11 +85,12 @@ export function FilterBar({ onFilterChange, quinzenas, fretistas, rotas, veiculo
     <div className="flex flex-wrap gap-2 items-center">
       {quinzenas.length > 0 && (
         <Select value={filters.quinzena || undefined} onValueChange={(v) => setFilters({ ...filters, quinzena: v })}>
-          <SelectTrigger className="w-[180px] h-9 text-sm">
+          <SelectTrigger className="w-[200px] h-9 text-sm">
             <SelectValue placeholder="Quinzena" />
           </SelectTrigger>
           <SelectContent>
-            {quinzenas.map((q) => (
+            <SelectItem value="TODAS">Todas as quinzenas</SelectItem>
+            {[...quinzenas].sort((a, b) => b.localeCompare(a)).map((q) => (
               <SelectItem key={q} value={q}>{q}</SelectItem>
             ))}
           </SelectContent>

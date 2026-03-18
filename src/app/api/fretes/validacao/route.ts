@@ -13,6 +13,7 @@ interface ValidationResult {
   divergBiApp: number | null;
   divergBiTabela: number | null;
   status: string;
+  statusFrete: string | null;
   placa: string | null;
   tipoVeiculo: string | null;
   justificativa: string | null;
@@ -21,6 +22,8 @@ interface ValidationResult {
   validadoPorUsuario: string | null;
   validadoPorTipo: string | null;
   dataValidacao: string | null;
+  justificadoPorUsuario: string | null;
+  dataJustificativa: string | null;
 }
 
 // Normalize route name for matching
@@ -50,6 +53,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const onlyDivergences = searchParams.get('divergentes') === 'true';
+    const onlyJustificados = searchParams.get('justificados') === 'true';
     const idQuinzenal = searchParams.get('idQuinzenal');
 
     // Fetch dados_fretes
@@ -147,11 +151,6 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Se tem status_frete definido (Justificado), usar ele
-      if (carga.status_frete) {
-        status = carga.status_frete;
-      }
-
       // Auto-autorizar status OK
       let statusValidacao = carga.status_validacao || 'Não autorizado';
       if (status === 'Conforme Tabela' && statusValidacao === 'Não autorizado') {
@@ -170,6 +169,7 @@ export async function GET(request: NextRequest) {
         divergBiApp,
         divergBiTabela,
         status,
+        statusFrete: carga.status_frete || null,
         placa: carga.placa,
         tipoVeiculo,
         justificativa: carga.justificativa || null,
@@ -178,18 +178,31 @@ export async function GET(request: NextRequest) {
         validadoPorUsuario: carga.validado_por_usuario || null,
         validadoPorTipo: carga.validado_por_tipo || null,
         dataValidacao: carga.data_validacao || null,
+        justificadoPorUsuario: carga.justificado_por_usuario || null,
+        dataJustificativa: carga.data_justificativa || null,
       });
     }
 
-    // Filter if only divergences requested
-    const filteredResults = onlyDivergences 
-      ? results.filter(r => r.status !== 'Conforme Tabela')
-      : results;
+    // Filter based on request type
+    let filteredResults = results;
+    
+    if (onlyDivergences) {
+      // Divergências: apenas registros com divergência que NÃO foram justificados
+      filteredResults = results.filter(r => 
+        r.status !== 'Conforme Tabela' && r.statusFrete !== 'Justificado'
+      );
+    } else if (onlyJustificados) {
+      // Justificados: apenas registros que foram justificados (com justificativa)
+      filteredResults = results.filter(r => 
+        r.statusFrete === 'Justificado'
+      );
+    }
 
     return NextResponse.json({
       data: filteredResults,
       total: results.length,
       divergences: results.filter(r => r.status !== 'Conforme Tabela').length,
+      justificados: results.filter(r => r.statusFrete === 'Justificado').length,
     });
   } catch (error) {
     console.error('Error calculating validation:', error);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
+import { registrarLogAtividade } from '@/lib/log-atividade';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -13,6 +14,13 @@ export async function PUT(request: NextRequest) {
     }
 
     const supabase = createClient();
+
+    // Buscar dados anteriores para o log
+    const { data: dadosAnteriores } = await supabase
+      .from('dados_fretes')
+      .select('status_validacao, validado_por_usuario, status_frete, id_carga')
+      .eq('id', id)
+      .single();
 
     const updateData: any = {
       status_validacao,
@@ -47,6 +55,26 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Registrar log de atividade
+    await registrarLogAtividade({
+      acao: status_validacao === 'Validado e Autorizado' ? 'AUTORIZAR_FRETE' : 'DESAUTORIZAR_FRETE',
+      tabela: 'dados_fretes',
+      registroId: id,
+      detalhes: {
+        id_carga: dadosAnteriores?.id_carga,
+        status_validacao_anterior: dadosAnteriores?.status_validacao || null,
+        status_validacao_novo: status_validacao,
+        validado_por_usuario_anterior: dadosAnteriores?.validado_por_usuario || null,
+        validado_por_usuario_novo: validado_por_usuario,
+        validado_por_tipo,
+        status_frete_anterior: dadosAnteriores?.status_frete || null,
+        status_frete_novo: updateData.status_frete || null,
+        status_atual,
+      },
+      usuarioEmail: validado_por_usuario,
+      tipoUsuario: validado_por_tipo,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

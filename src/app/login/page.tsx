@@ -29,8 +29,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0F5132] to-[#16A34A] p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Image */}
+      <div className="absolute inset-0 z-0">
+        <Image
+          src="/backgroundlogin.png"
+          alt="Background"
+          fill
+          className="object-cover"
+          priority
+          quality={100}
+        />
+        {/* Overlay escuro para melhor contraste */}
+        <div className="absolute inset-0 bg-black/50" />
+      </div>
+
+      {/* Card de Login */}
+      <Card className="w-full max-w-md relative z-10 shadow-2xl">
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
             <Image

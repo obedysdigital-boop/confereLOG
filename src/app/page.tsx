@@ -12,12 +12,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Upload, CheckCircle, AlertTriangle, FileSpreadsheet, MessageCircle, Loader2 as Loader2Icon, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { QuinzenaModal } from '@/components/QuinzenaModal';
 import { JustificativaDialog } from '@/components/JustificativaDialog';
 import { FilterBar, FilterValues } from '@/components/FilterBar';
-import { HistoricoImportacoes } from '@/components/HistoricoImportacoes';
+import { MetricasImportacao } from '@/components/MetricasImportacao';
 import { ExportButton } from '@/components/ExportButton';
 import { StatusButton } from '@/components/StatusButton';
 import DashboardPage from './dashboard/page';
@@ -35,6 +34,7 @@ interface ValidationResult {
   divergBiApp: number | null;
   divergBiTabela: number | null;
   status: string;
+  statusFrete: string | null;
   placa: string | null;
   tipoVeiculo: string | null;
   justificativa?: string | null;
@@ -43,6 +43,8 @@ interface ValidationResult {
   validadoPorUsuario: string | null;
   validadoPorTipo: string | null;
   dataValidacao: string | null;
+  justificadoPorUsuario?: string | null;
+  dataJustificativa?: string | null;
 }
 
 // Upload Component
@@ -244,18 +246,20 @@ function UploadPage() {
         }`}
       />
 
-      {/* Histórico de Importações */}
-      <HistoricoImportacoes />
+      {/* Métricas de Importação */}
+      <MetricasImportacao />
     </div>
   );
 }
 
 // Validation Table Component
-function ValidationTable({ onlyDivergences = false }: { onlyDivergences?: boolean }) {
+function ValidationTable({ onlyDivergences = false, onlyJustificados = false }: { onlyDivergences?: boolean; onlyJustificados?: boolean }) {
   const [data, setData] = useState<ValidationResult[]>([]);
   const [filteredData, setFilteredData] = useState<ValidationResult[]>([]);
+  const [paginatedData, setPaginatedData] = useState<ValidationResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [justificativaDialogOpen, setJustificativaDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ValidationResult | null>(null);
   const [filters, setFilters] = useState<FilterValues>({
@@ -268,22 +272,29 @@ function ValidationTable({ onlyDivergences = false }: { onlyDivergences?: boolea
     validacao: '',
   });
 
+  const ITEMS_PER_PAGE = 500;
+  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const url = onlyDivergences
-        ? '/api/fretes/validacao?divergentes=true'
-        : '/api/fretes/validacao';
+      let url = '/api/fretes/validacao';
+      
+      if (onlyDivergences) {
+        url += '?divergentes=true';
+      } else if (onlyJustificados) {
+        url += '?justificados=true';
+      }
+      
       const res = await fetch(url);
       const result = await res.json();
       setData(result.data || []);
-      setFilteredData(result.data || []);
     } catch (error) {
       toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
-  }, [onlyDivergences]);
+  }, [onlyDivergences, onlyJustificados]);
 
   useEffect(() => {
     fetchData();
@@ -310,7 +321,7 @@ function ValidationTable({ onlyDivergences = false }: { onlyDivergences?: boolea
     }
 
     // Filtro de quinzena
-    if (filters.quinzena) {
+    if (filters.quinzena && filters.quinzena !== 'TODAS') {
       filtered = filtered.filter((item) => item.idQuinzenal === filters.quinzena);
     }
 
@@ -345,7 +356,15 @@ function ValidationTable({ onlyDivergences = false }: { onlyDivergences?: boolea
     }
 
     setFilteredData(filtered);
+    setCurrentPage(1); // Reset para primeira página quando filtros mudarem
   }, [data, search, filters]);
+
+  // Aplicar paginação
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    setPaginatedData(filteredData.slice(startIndex, endIndex));
+  }, [filteredData, currentPage]);
 
   // Extrair valores únicos para os filtros
   const quinzenas = Array.from(new Set(data.map((d) => d.idQuinzenal).filter(Boolean))) as string[];
@@ -365,6 +384,11 @@ function ValidationTable({ onlyDivergences = false }: { onlyDivergences?: boolea
   const formatCurrency = (value: number | null) => {
     if (value === null) return '-';
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleShareWhatsApp = (item: ValidationResult) => {
@@ -419,8 +443,49 @@ ${divergences.length > 10 ? `\n... e mais ${divergences.length - 10} divergênci
     );
   }
 
+  // Calcular métricas
+  const totalCargas = filteredData.length;
+  const totalDivergentes = filteredData.filter((d) => d.status !== 'Conforme Tabela' && d.statusFrete !== 'Justificado').length;
+  const totalJustificados = filteredData.filter((d) => d.statusFrete === 'Justificado').length;
+  const totalAutorizados = filteredData.filter((d) => d.statusValidacao === 'Validado e Autorizado').length;
+  const valorAppTotal = filteredData.reduce((sum, item) => sum + (item.valorApp || 0), 0);
+
   return (
     <div className="space-y-3">
+      {/* Cards de Métricas */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs text-gray-500 mb-1">Qtd. de Cargas</div>
+            <div className="text-2xl font-bold">{totalCargas}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs text-gray-500 mb-1">Divergentes</div>
+            <div className="text-2xl font-bold text-red-600">{totalDivergentes}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs text-gray-500 mb-1">Justificados</div>
+            <div className="text-2xl font-bold text-blue-600">{totalJustificados}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs text-gray-500 mb-1">Autorizados</div>
+            <div className="text-2xl font-bold text-green-600">{totalAutorizados}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs text-gray-500 mb-1">Vlr APP Total</div>
+            <div className="text-xl font-bold">{formatCurrency(valorAppTotal)}</div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3 flex-wrap">
           <Input
@@ -432,9 +497,19 @@ ${divergences.length > 10 ? `\n... e mais ${divergences.length - 10} divergênci
           <Badge variant="outline" className="text-xs">
             {filteredData.length} registros
           </Badge>
-          {!onlyDivergences && (
-            <Badge variant="destructive" className="text-xs">
-              {filteredData.filter((d) => d.status !== 'Conforme Tabela').length} divergências
+          {!onlyDivergences && !onlyJustificados && (
+            <>
+              <Badge variant="destructive" className="text-xs">
+                {filteredData.filter((d) => d.status !== 'Conforme Tabela' && d.statusFrete !== 'Justificado').length} divergências
+              </Badge>
+              <Badge className="text-xs bg-blue-600">
+                {filteredData.filter((d) => d.statusFrete === 'Justificado').length} justificados
+              </Badge>
+            </>
+          )}
+          {totalPages > 1 && (
+            <Badge variant="secondary" className="text-xs">
+              Página {currentPage} de {totalPages}
             </Badge>
           )}
           <div className="ml-auto flex items-center gap-2">
@@ -452,13 +527,23 @@ ${divergences.length > 10 ? `\n... e mais ${divergences.length - 10} divergênci
                 Status: item.status,
                 Justificativa: item.justificativa || '',
               }))}
-              filename={onlyDivergences ? 'exportacao-divergencias' : 'exportacao-validacao'}
+              filename={onlyDivergences ? 'exportacao-divergencias' : onlyJustificados ? 'exportacao-justificados' : 'exportacao-validacao'}
             />
             {onlyDivergences && (
               <Button
                 onClick={handleShareAllDivergences}
                 size="sm"
                 className="bg-green-600 hover:bg-green-700 h-9"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Compartilhar
+              </Button>
+            )}
+            {onlyJustificados && (
+              <Button
+                onClick={handleShareAllDivergences}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 h-9"
               >
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Compartilhar
@@ -477,68 +562,83 @@ ${divergences.length > 10 ? `\n... e mais ${divergences.length - 10} divergênci
       </div>
 
       <Card className="overflow-hidden dark:bg-[#434343] dark:border-[#606060]">
-        <div className="overflow-x-auto">
-          <div className="min-w-[1400px]">
+        <div className="overflow-auto max-h-[calc(100vh-400px)]">
+          <table className="w-full text-xs border-collapse">
             {/* Header */}
-            <div className="grid grid-cols-[80px_70px_120px_180px_90px_90px_90px_80px_80px_110px_120px_150px_70px] gap-2 p-2 bg-gray-50 text-xs font-medium text-gray-600 border-b">
-              <div>Data</div>
-              <div>Carga</div>
-              <div>Fretista</div>
-              <div>Rota</div>
-              <div>Vlr BI</div>
-              <div>Vlr APP</div>
-              <div>Vlr Tab</div>
-              <div>Dif B×A</div>
-              <div>Dif B×T</div>
-              <div>Status</div>
-              <div>Validação</div>
-              <div>Justificativa</div>
-              <div></div>
-            </div>
+            <thead className="bg-gray-50 dark:bg-gray-800 border-b sticky top-0 z-10">
+              <tr>
+                <th className="p-2 text-left font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap border-r">Data</th>
+                <th className="p-2 text-left font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap border-r">Carga</th>
+                <th className="p-2 text-left font-medium text-gray-600 dark:text-gray-400 min-w-[120px] border-r">Fretista</th>
+                <th className="p-2 text-left font-medium text-gray-600 dark:text-gray-400 min-w-[150px] border-r">Rota</th>
+                <th className="p-2 text-right font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap border-r">Vlr BI</th>
+                <th className="p-2 text-right font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap border-r">Vlr APP</th>
+                <th className="p-2 text-right font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap border-r">Vlr Tab</th>
+                <th className="p-2 text-right font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap border-r">Dif B×A</th>
+                <th className="p-2 text-right font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap border-r">Dif B×T</th>
+                <th className="p-2 text-center font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap border-r">Status</th>
+                <th className="p-2 text-center font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap border-r">Justif.</th>
+                <th className="p-2 text-center font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap border-r">Validação</th>
+                <th className="p-2 text-left font-medium text-gray-600 dark:text-gray-400 min-w-[150px] border-r">Justificativa</th>
+                <th className="p-2 text-center font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">Ações</th>
+              </tr>
+            </thead>
             {/* Body */}
-            <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
-              {filteredData.length === 0 ? (
-                <div className="text-center py-8 text-sm text-gray-500">
-                  {onlyDivergences ? 'Nenhuma divergência' : 'Nenhum registro'}
-                </div>
+            <tbody>
+              {paginatedData.length === 0 ? (
+                <tr>
+                  <td colSpan={14} className="text-center py-8 text-sm text-gray-500">
+                    {onlyDivergences ? 'Nenhuma divergência pendente' : onlyJustificados ? 'Nenhum registro justificado' : 'Nenhum registro'}
+                  </td>
+                </tr>
               ) : (
-                filteredData.map((item) => (
-                  <div
+                paginatedData.map((item) => (
+                  <tr
                     key={item.id}
-                    className={`grid grid-cols-[80px_70px_120px_180px_90px_90px_90px_80px_80px_110px_120px_150px_70px] gap-2 p-2 items-center text-xs border-b hover:bg-gray-50 transition-colors ${
-                      item.status === 'Diverge da Tabela' ? 'bg-red-50/30' : ''
+                    className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                      item.status === 'Diverge da Tabela' ? 'bg-red-50/30 dark:bg-red-900/10' : ''
                     }`}
                   >
-                    <div className="text-gray-600">{item.data}</div>
-                    <div className="font-mono font-medium">{item.idCarga}</div>
-                    <div className="truncate" title={item.fretista}>{item.fretista}</div>
-                    <div className="truncate" title={item.rota}>{item.rota}</div>
-                    <div className="font-mono">{formatCurrency(item.valorBI)}</div>
-                    <div className="font-mono">{formatCurrency(item.valorApp)}</div>
-                    <div className="font-mono">{formatCurrency(item.valorTabela)}</div>
-                    <div className={`font-mono font-medium ${item.divergBiApp !== null && item.divergBiApp !== 0 ? 'text-red-600' : ''}`}>
+                    <td className="p-2 text-gray-600 dark:text-gray-400 whitespace-nowrap border-r">{item.data}</td>
+                    <td className="p-2 font-mono font-medium whitespace-nowrap border-r">{item.idCarga}</td>
+                    <td className="p-2 truncate max-w-[120px] border-r" title={item.fretista}>{item.fretista}</td>
+                    <td className="p-2 truncate max-w-[150px] border-r" title={item.rota}>{item.rota}</td>
+                    <td className="p-2 text-right font-mono whitespace-nowrap border-r">{formatCurrency(item.valorBI)}</td>
+                    <td className="p-2 text-right font-mono whitespace-nowrap border-r">{formatCurrency(item.valorApp)}</td>
+                    <td className="p-2 text-right font-mono whitespace-nowrap border-r">{formatCurrency(item.valorTabela)}</td>
+                    <td className={`p-2 text-right font-mono font-medium whitespace-nowrap border-r ${item.divergBiApp !== null && item.divergBiApp !== 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
                       {formatCurrency(item.divergBiApp)}
-                    </div>
-                    <div className={`font-mono font-medium ${item.divergBiTabela !== null && item.divergBiTabela !== 0 ? 'text-red-600' : ''}`}>
+                    </td>
+                    <td className={`p-2 text-right font-mono font-medium whitespace-nowrap border-r ${item.divergBiTabela !== null && item.divergBiTabela !== 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
                       {formatCurrency(item.divergBiTabela)}
-                    </div>
-                    <div>
+                    </td>
+                    <td className="p-2 text-center border-r">
                       <Badge
                         variant={item.status === 'Conforme Tabela' ? 'default' : 'destructive'}
-                        className={`text-xs ${
+                        className={`text-xs whitespace-nowrap ${
                           item.status === 'Conforme Tabela'
-                            ? 'bg-green-600'
-                            : item.status === 'Justificado'
-                            ? 'bg-blue-600'
+                            ? 'bg-green-600 hover:bg-green-700'
                             : item.status === 'Diverge da Tabela'
-                            ? 'bg-red-600'
-                            : 'bg-gray-500'
+                            ? 'bg-red-600 hover:bg-red-700'
+                            : 'bg-gray-500 hover:bg-gray-600'
                         }`}
                       >
                         {item.status === 'Conforme Tabela' ? 'OK' : item.status === 'Diverge da Tabela' ? 'Diverge' : item.status}
                       </Badge>
-                    </div>
-                    <div>
+                    </td>
+                    <td className="p-2 text-center border-r">
+                      <Badge
+                        variant={item.statusFrete === 'Justificado' ? 'default' : 'secondary'}
+                        className={`text-xs whitespace-nowrap ${
+                          item.statusFrete === 'Justificado'
+                            ? 'bg-blue-600 hover:bg-blue-700'
+                            : 'bg-gray-400 hover:bg-gray-500'
+                        }`}
+                      >
+                        {item.statusFrete === 'Justificado' ? 'Sim' : 'Não'}
+                      </Badge>
+                    </td>
+                    <td className="p-2 text-center border-r">
                       <StatusButton
                         id={item.id}
                         idCarga={item.idCarga}
@@ -546,49 +646,123 @@ ${divergences.length > 10 ? `\n... e mais ${divergences.length - 10} divergênci
                         statusAtual={item.status}
                         onStatusChanged={fetchData}
                       />
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {item.justificativa && item.justificativa.length > 50 ? (
+                    </td>
+                    <td className="p-2 text-xs text-gray-600 dark:text-gray-400 max-w-[150px] border-r">
+                      {item.justificativa && item.justificativa.length > 40 ? (
                         <details className="cursor-pointer">
-                          <summary className="hover:text-gray-900 font-medium">
-                            {item.justificativa.substring(0, 50)}...
+                          <summary className="hover:text-gray-900 dark:hover:text-gray-200 font-medium truncate">
+                            {item.justificativa.substring(0, 40)}...
                           </summary>
-                          <div className="mt-1 p-2 bg-gray-50 rounded text-xs whitespace-pre-wrap">
+                          <div className="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs whitespace-pre-wrap max-w-xs shadow-lg border">
                             {item.justificativa}
                           </div>
                         </details>
                       ) : (
-                        <span title={item.justificativa || ''}>{item.justificativa || '-'}</span>
+                        <span className="truncate block" title={item.justificativa || ''}>{item.justificativa || '-'}</span>
                       )}
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => handleOpenJustificativa(item)}
-                        title="Justificativa"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                      </Button>
-                      {item.status === 'Diverge da Tabela' && (
+                    </td>
+                    <td className="p-2">
+                      <div className="flex gap-1 justify-center">
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-7 w-7 text-green-600"
-                          onClick={() => handleShareWhatsApp(item)}
-                          title="WhatsApp"
+                          className="h-7 w-7 hover:bg-gray-200 dark:hover:bg-gray-700"
+                          onClick={() => handleOpenJustificativa(item)}
+                          title="Justificativa"
                         >
-                          <MessageCircle className="w-3.5 h-3.5" />
+                          <FileText className="w-3.5 h-3.5" />
                         </Button>
-                      )}
-                    </div>
-                  </div>
+                        {item.status === 'Diverge da Tabela' && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-green-600 hover:bg-green-100 dark:hover:bg-green-900"
+                            onClick={() => handleShareWhatsApp(item)}
+                            title="WhatsApp"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
                 ))
               )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Controles de Paginação */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t">
+            <div className="text-sm text-gray-600">
+              Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredData.length)} de {filteredData.length} registros
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(1)}
+                disabled={currentPage === 1}
+              >
+                Primeira
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Anterior
+              </Button>
+              
+              {/* Páginas */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => goToPage(pageNum)}
+                      className={currentPage === pageNum ? 'bg-[#0F5132] hover:bg-[#0F5132]/90' : ''}
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Próxima
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(totalPages)}
+                disabled={currentPage === totalPages}
+              >
+                Última
+              </Button>
             </div>
           </div>
-        </div>
+        )}
       </Card>
 
       {/* Dialog de Justificativa */}
@@ -612,13 +786,28 @@ ${divergences.length > 10 ? `\n... e mais ${divergences.length - 10} divergênci
 export default function ConfereLOGApp() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('upload');
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'upload');
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, []);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', value);
+    window.history.pushState({}, '', url);
+  };
 
   if (loading) {
     return (
@@ -634,42 +823,11 @@ export default function ConfereLOGApp() {
 
   return (
     <MainLayout>
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 mb-4 h-9">
-          <TabsTrigger value="upload" className="text-sm">
-            <Upload className="w-4 h-4 mr-2" />
-            Importação
-          </TabsTrigger>
-          <TabsTrigger value="validacao" className="text-sm">
-            <FileText className="w-4 h-4 mr-2" />
-            Validação
-          </TabsTrigger>
-          <TabsTrigger value="divergencias" className="text-sm">
-            <AlertTriangle className="w-4 h-4 mr-2" />
-            Divergências
-          </TabsTrigger>
-          <TabsTrigger value="dashboard" className="text-sm">
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Dashboard
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="upload">
-          <UploadPage />
-        </TabsContent>
-
-        <TabsContent value="validacao">
-          <ValidationTable />
-        </TabsContent>
-
-        <TabsContent value="divergencias">
-          <ValidationTable onlyDivergences />
-        </TabsContent>
-
-        <TabsContent value="dashboard">
-          <DashboardPage />
-        </TabsContent>
-      </Tabs>
+      {activeTab === 'upload' && <UploadPage />}
+      {activeTab === 'validacao' && <ValidationTable />}
+      {activeTab === 'divergencias' && <ValidationTable onlyDivergences />}
+      {activeTab === 'justificados' && <ValidationTable onlyJustificados />}
+      {activeTab === 'dashboard' && <DashboardPage />}
     </MainLayout>
   );
 }

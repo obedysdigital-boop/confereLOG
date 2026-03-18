@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { registrarLogAtividade } from '@/lib/log-atividade';
 import * as XLSX from 'xlsx';
 
 // Configuração para Vercel
@@ -365,6 +366,22 @@ export async function POST(request: NextRequest) {
       file_name: file.name,
       records_count: inserted,
       status: 'COMPLETED',
+    });
+
+    // Registrar log de atividade
+    await registrarLogAtividade({
+      acao: 'IMPORTAR_DADOS',
+      tabela: tipoImportacaoMap[type],
+      registroId: idQuinzenal || 'tabela_fretes',
+      detalhes: {
+        tipo_importacao: type,
+        nome_arquivo: file.name,
+        qtd_registros: inserted,
+        total_linhas: records.length,
+        id_quinzenal: type !== 'tabela' ? idQuinzenal : null,
+        menor_carga: menorCarga,
+        maior_carga: maiorCarga,
+      },
     });
 
     return NextResponse.json({
