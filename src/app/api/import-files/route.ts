@@ -106,18 +106,54 @@ function parseAppFile(workbook: XLSX.WorkBook): AppRecord[] {
 
   const formatExcelDate = (value: unknown): string => {
     if (value === null || value === undefined) return '';
+    
+    // Se já é um objeto Date (XLSX pode converter automaticamente)
+    if (value instanceof Date) {
+      const day = String(value.getDate()).padStart(2, '0');
+      const month = String(value.getMonth() + 1).padStart(2, '0');
+      const year = value.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    
+    // Se é uma string, pode estar em formato MM/DD/YYYY ou DD/MM/YYYY
     if (typeof value === 'string') {
-      if (value.includes('/')) return value;
+      if (value.includes('/')) {
+        const parts = value.split('/');
+        if (parts.length === 3) {
+          // Tenta detectar o formato
+          const first = parseInt(parts[0]);
+          const second = parseInt(parts[1]);
+          const year = parseInt(parts[2]);
+          
+          // Se o primeiro número é > 12, é DD/MM/YYYY
+          if (first > 12) {
+            return value; // Já está no formato correto
+          }
+          // Se o segundo número é > 12, é MM/DD/YYYY (formato americano)
+          if (second > 12) {
+            return `${parts[1].padStart(2, '0')}/${parts[0].padStart(2, '0')}/${year}`;
+          }
+          // Ambíguo - assume MM/DD/YYYY (padrão Excel/XLSX)
+          return `${parts[1].padStart(2, '0')}/${parts[0].padStart(2, '0')}/${year}`;
+        }
+      }
       return value;
     }
+    
+    // Se é um número (serial date do Excel)
     if (typeof value === 'number') {
-      const excelEpoch = new Date(1899, 11, 30);
-      const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+      // Excel armazena datas como número de dias desde 1900-01-01
+      // Mas há um bug histórico: Excel considera 1900 como ano bissexto (não é)
+      const excelEpoch = new Date(1900, 0, 1); // 1 de janeiro de 1900
+      const days = value > 60 ? value - 2 : value - 1; // Ajuste para o bug do Excel
+      const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
+      
       const day = String(date.getDate()).padStart(2, '0');
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const year = date.getFullYear();
       return `${day}/${month}/${year}`;
     }
+    
     return String(value);
   };
 
